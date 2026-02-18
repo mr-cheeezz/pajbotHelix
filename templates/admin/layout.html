@@ -11,8 +11,14 @@
                 {% endif -%}
                 {{ menuitem.caption }}</a>
             {%- else %}
+            {% set ns = namespace(active=false) %}
+            {% for submenuitem in menuitem.href %}
+                {% if submenuitem.id == active_page %}
+                    {% set ns.active = true %}
+                {% endif %}
+            {% endfor %}
             <div class="ui compact menu inverted blue">
-                <div class="ui simple dropdown item">{{ menuitem.caption }}<i class="dropdown icon"></i>
+                <div class="ui simple dropdown item{% if ns.active %} active{% endif %}">{{ menuitem.caption }}<i class="dropdown icon"></i>
                     <div class="menu">
                         {%- for submenuitem in menuitem.href %}
                             <a class="inverted blue item{% if submenuitem.id == active_page %} active{% endif %}" href="{{ submenuitem.href }}">

@@ -816,7 +816,12 @@ a {
 }
 
 .admin-blue-menu .item.active {
-    background: #1b6fb0 !important;
+    background: rgba(0, 0, 0, 0.18) !important;
+    box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.75);
+}
+
+.admin-blue-menu .item:hover {
+    background: rgba(0, 0, 0, 0.1) !important;
 }
 
 .admin-blue-menu .ui.compact.menu.inverted.blue {
