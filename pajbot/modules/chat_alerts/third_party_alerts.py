@@ -331,7 +331,7 @@ class ThirdPartyAlertsModule(BaseModule):
 
     def _fetch_streamlabs_donations(self) -> list[ExternalTipEvent]:
         if not self.token:
-            log.info("Streamlabs polling is disabled because no access token is configured")
+            log.debug("Streamlabs polling is disabled because no access token is configured")
             return []
 
         response = requests.get(
@@ -782,6 +782,12 @@ class ThirdPartyAlertsModule(BaseModule):
             return
 
         self._start_realtime_if_configured()
+
+        # Socket-token-only Streamlabs setups should not poll REST endpoints.
+        if self.provider == "streamlabs" and self.token == "":
+            log.info("Streamlabs running in socket-token-only mode (polling disabled)")
+            return
+
         self.poll_job = ScheduleManager.execute_every(self.poll_seconds, self._poll_provider_events)
 
     def disable(self, bot) -> None:
