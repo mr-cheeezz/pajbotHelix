@@ -56,22 +56,6 @@ class ThirdPartyAlertsModule(BaseModule):
             default=True,
         ),
         ModuleSetting(
-            key="chat_alert_tip_message",
-            label="Optional fallback tip alert message (full message), used only when the matched amount bucket has no message. Leave empty to disable fallback | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
-            type="text",
-            required=True,
-            default="",
-            constraints={"min_str_len": 0, "max_str_len": 400},
-        ),
-        ModuleSetting(
-            key="chat_alert_tip_message_type",
-            label="Method to use for fallback tip alerts",
-            type="options",
-            required=True,
-            default="say",
-            options=["announce", "say", "me"],
-        ),
-        ModuleSetting(
             key="tip_amount_1_message",
             label="Tip alert message for 1+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
@@ -683,10 +667,7 @@ class ThirdPartyAlertsModule(BaseModule):
             (Decimal("100"), "tip_amount_100_message", "tip_amount_100_message_type"),
             (Decimal("250"), "tip_amount_250_message", "tip_amount_250_message_type"),
         ]
-        has_any_fixed_bucket_message = any(self.settings[message_key] != "" for _, message_key, _ in fixed_thresholds)
-
-        # Amount buckets are independent. We select the matching bucket by amount first,
-        # then either use that bucket's message or fall back to the global default.
+        # Amount buckets are independent and there is no fallback message.
         selected_bucket: Optional[tuple[str, str]] = None
         selected_threshold = Decimal("0")
         for threshold, message_key, method_key in fixed_thresholds:
@@ -698,10 +679,8 @@ class ThirdPartyAlertsModule(BaseModule):
             message_key, method_key = selected_bucket
             if self.settings[message_key] != "":
                 return message_key, self.settings[method_key]
-            if has_any_fixed_bucket_message:
-                return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
 
-        return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
+        return "", "say"
 
     def _handle_tip_event(self, event: ExternalTipEvent) -> None:
         if self.bot is None:
@@ -709,16 +688,17 @@ class ThirdPartyAlertsModule(BaseModule):
 
         if self.settings["chat_alert_tip_enabled"]:
             tip_message_key, tip_message_type = self._select_tip_message_and_type(event.amount)
-            chat_message = self.get_phrase(
-                tip_message_key,
-                provider=event.provider,
-                username=event.username,
-                amount=self._format_amount(event.amount),
-                currency=event.currency,
-                message=event.message,
-            )
-            if chat_message.strip() != "":
-                self.bot.send_message(chat_message, method=tip_message_type)
+            if tip_message_key != "":
+                chat_message = self.get_phrase(
+                    tip_message_key,
+                    provider=event.provider,
+                    username=event.username,
+                    amount=self._format_amount(event.amount),
+                    currency=event.currency,
+                    message=event.message,
+                )
+                if chat_message.strip() != "":
+                    self.bot.send_message(chat_message, method=tip_message_type)
 
         self._grant_points_for_tip(event)
 

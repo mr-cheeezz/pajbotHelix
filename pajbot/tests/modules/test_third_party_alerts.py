@@ -154,8 +154,6 @@ def test_fixed_tip_amount_bucket_uses_bucket_message_type() -> None:
     module = ThirdPartyAlertsModule(bot=None)
     module.settings = module.default_settings.copy()
     module.settings["chat_alert_tip_enabled"] = True
-    module.settings["chat_alert_tip_message_type"] = "say"
-    module.settings["chat_alert_tip_message"] = "default {amount}"
     module.settings["tip_amount_50_message"] = "bucket50 {amount}"
     module.settings["tip_amount_50_message_type"] = "announce"
     module.bot = FakeBot()
@@ -177,8 +175,6 @@ def test_fixed_tip_amount_bucket_does_not_fallback_to_lower_bucket_message() -> 
     module = ThirdPartyAlertsModule(bot=None)
     module.settings = module.default_settings.copy()
     module.settings["chat_alert_tip_enabled"] = True
-    module.settings["chat_alert_tip_message"] = "default {amount}"
-    module.settings["chat_alert_tip_message_type"] = "say"
     module.settings["tip_amount_1_message"] = "bucket1 {amount}"
     module.settings["tip_amount_1_message_type"] = "announce"
     module.settings["tip_amount_50_message"] = ""
@@ -188,28 +184,6 @@ def test_fixed_tip_amount_bucket_does_not_fallback_to_lower_bucket_message() -> 
     event = ExternalTipEvent(
         event_id="id-3",
         username="echo",
-        amount=Decimal("60"),
-        currency="USD",
-        message="test",
-        provider="Streamlabs",
-    )
-    module._handle_tip_event(event)
-
-    assert module.bot.sent_messages == [("say", "default 60")]
-
-
-def test_blank_fallback_message_disables_unmatched_bucket_alert() -> None:
-    module = ThirdPartyAlertsModule(bot=None)
-    module.settings = module.default_settings.copy()
-    module.settings["chat_alert_tip_enabled"] = True
-    module.settings["chat_alert_tip_message"] = ""
-    module.settings["tip_amount_1_message"] = "bucket1 {amount}"
-    module.settings["tip_amount_50_message"] = ""
-    module.bot = FakeBot()
-
-    event = ExternalTipEvent(
-        event_id="id-4",
-        username="foxtrot",
         amount=Decimal("60"),
         currency="USD",
         message="test",

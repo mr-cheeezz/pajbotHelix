@@ -278,6 +278,10 @@ div.pui.class.undefined {
     padding: 0.75rem 0;
 }
 
+#commands {
+    padding: 0.75rem;
+}
+
 #stats,
 #userprofile,
 #top_users,
@@ -290,6 +294,50 @@ div.pui.class.undefined {
 #stats .minitable,
 #top_users table {
     margin-top: 0.75rem;
+}
+
+#top_users table.ui.table {
+    width: min(100%, 760px);
+    border: 1px solid var(--border) !important;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+#top_users table.ui.table thead th {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    padding-top: 0.85rem !important;
+    padding-bottom: 0.85rem !important;
+}
+
+#top_users table.ui.table tbody td {
+    padding-top: 0.8rem !important;
+    padding-bottom: 0.8rem !important;
+    vertical-align: middle;
+}
+
+#top_users table.ui.table th:nth-child(1),
+#top_users table.ui.table td:nth-child(1) {
+    width: 72px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+#top_users table.ui.table th:nth-child(2),
+#top_users table.ui.table td:nth-child(2) {
+    min-width: 240px;
+}
+
+#top_users table.ui.table th:nth-child(3),
+#top_users table.ui.table td:nth-child(3) {
+    width: 180px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+#top_users table.ui.table td:nth-child(2) .pui.badge {
+    margin-right: 0.3rem;
 }
 
 #check_points {
@@ -645,6 +693,25 @@ a {
     padding-left: 5px !important;
 }
 
+.ui.styled.accordion,
+.ui.styled.accordion .accordion {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+}
+
+.ui.styled.accordion .title,
+.ui.styled.accordion .accordion .title {
+    background: var(--surface-soft) !important;
+    color: var(--page-text) !important;
+    border-top-color: var(--border) !important;
+}
+
+.ui.styled.accordion .content,
+.ui.styled.accordion .accordion .content {
+    background: var(--surface) !important;
+    color: var(--page-text) !important;
+}
+
 .ui.input input,
 .ui.form input[type="text"],
 .ui.form input[type="number"],
@@ -796,6 +863,16 @@ div.chat div.chat-message {
         display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    #top_users table.ui.table th:nth-child(1),
+    #top_users table.ui.table td:nth-child(1) {
+        width: 56px;
+    }
+
+    #top_users table.ui.table th:nth-child(3),
+    #top_users table.ui.table td:nth-child(3) {
+        width: 140px;
     }
 
 }
