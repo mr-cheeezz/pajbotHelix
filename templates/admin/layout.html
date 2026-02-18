@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block menu %}
-    <div class="ui top fixed menu inverted blue">
+    <div class="ui top fixed menu inverted blue admin-blue-menu">
         <div class="menu" style="margin:auto;">
         {% for menuitem in nav_bar_admin_header if menuitem.enabled %}
         {%- if not session.user or session.user.level > menuitem.level %}
