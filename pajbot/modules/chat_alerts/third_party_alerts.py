@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Optional
 import hashlib
 import json
@@ -169,7 +169,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="grant_points_per_tip",
-            label="Points to give to donor on each external tip/donation (if donor matches a user in DB). 0 = off",
+            label="Points to give donor per 1.00 tip amount (if donor matches a user in DB). Example: 100 means $5.00 gives 500 points. 0 = off",
             type="number",
             required=True,
             default=0,
@@ -636,7 +636,11 @@ class ThirdPartyAlertsModule(BaseModule):
         if self.bot is None:
             return
 
-        points_to_grant = self.settings["grant_points_per_tip"]
+        points_per_dollar = self.settings["grant_points_per_tip"]
+        if points_per_dollar <= 0:
+            return
+
+        points_to_grant = int((event.amount * Decimal(points_per_dollar)).to_integral_value(rounding=ROUND_HALF_UP))
         if points_to_grant <= 0:
             return
 

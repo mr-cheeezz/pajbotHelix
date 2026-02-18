@@ -119,6 +119,14 @@ class CheerAlertModule(BaseModule):
             constraints={"max_str_len": 400},
         ),
         ModuleSetting(
+            key="fivethousand_bits_message_type",
+            label="Message type for 5000+ bits cheer alerts",
+            type="options",
+            required=True,
+            default="inherit",
+            options=["inherit", "announce", "say", "me"],
+        ),
+        ModuleSetting(
             key="tenthousand_bits",
             label="Chat message for users who cheer 10000 or more bits, leave empty to fallback to the previous bit amount message. | Available arguments: {username}, {num_bits}",
             type="text",
@@ -128,6 +136,14 @@ class CheerAlertModule(BaseModule):
             constraints={"max_str_len": 400},
         ),
         ModuleSetting(
+            key="tenthousand_bits_message_type",
+            label="Message type for 10000+ bits cheer alerts",
+            type="options",
+            required=True,
+            default="inherit",
+            options=["inherit", "announce", "say", "me"],
+        ),
+        ModuleSetting(
             key="twentyfivethousand_bits",
             label="Chat message for users who cheer 25000 or more bits, leave empty to fallback to the previous bit amount message. | Available arguments: {username}, {num_bits}",
             type="text",
@@ -135,6 +151,14 @@ class CheerAlertModule(BaseModule):
             placeholder="{username} thank you so much for cheering {num_bits} bits! PogChamp",
             default="",
             constraints={"max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="twentyfivethousand_bits_message_type",
+            label="Message type for 25000+ bits cheer alerts",
+            type="options",
+            required=True,
+            default="inherit",
+            options=["inherit", "announce", "say", "me"],
         ),
         ModuleSetting(
             key="grant_points_per_100_bits",
@@ -158,27 +182,42 @@ class CheerAlertModule(BaseModule):
     def __init__(self, bot: Optional[Bot]) -> None:
         super().__init__(bot)
 
-    def _get_cheer_phrase(self, payload: dict[str, str], num_bits: int) -> Optional[str]:
+    def _get_cheer_phrase_key(self, num_bits: int) -> Optional[str]:
         if num_bits >= 25000 and self.settings["twentyfivethousand_bits"] != "":
-            return self.get_phrase("twentyfivethousand_bits", **payload)
+            return "twentyfivethousand_bits"
         if num_bits >= 10000 and self.settings["tenthousand_bits"] != "":
-            return self.get_phrase("tenthousand_bits", **payload)
+            return "tenthousand_bits"
         if num_bits >= 5000 and self.settings["fivethousand_bits"] != "":
-            return self.get_phrase("fivethousand_bits", **payload)
+            return "fivethousand_bits"
         if num_bits >= 1500 and self.settings["fifteenhundred_bits"] != "":
-            return self.get_phrase("fifteenhundred_bits", **payload)
+            return "fifteenhundred_bits"
         if num_bits >= 500 and self.settings["fivehundred_bits"] != "":
-            return self.get_phrase("fivehundred_bits", **payload)
+            return "fivehundred_bits"
         if num_bits == 420 and self.settings["fourtwenty_bits"] != "":
-            return self.get_phrase("fourtwenty_bits", **payload)
+            return "fourtwenty_bits"
         if num_bits >= 100 and self.settings["hundred_bits"] != "":
-            return self.get_phrase("hundred_bits", **payload)
+            return "hundred_bits"
         if num_bits == 69 and self.settings["sixnine_bits"] != "":
-            return self.get_phrase("sixnine_bits", **payload)
+            return "sixnine_bits"
         if self.settings["one_bit"] != "":
-            return self.get_phrase("one_bit", **payload)
+            return "one_bit"
 
         return None
+
+    def _get_cheer_chat_method(self, phrase_key: str) -> str:
+        override_key_by_phrase = {
+            "fivethousand_bits": "fivethousand_bits_message_type",
+            "tenthousand_bits": "tenthousand_bits_message_type",
+            "twentyfivethousand_bits": "twentyfivethousand_bits_message_type",
+        }
+
+        override_setting_key = override_key_by_phrase.get(phrase_key)
+        if override_setting_key is not None:
+            override_method = self.settings[override_setting_key]
+            if override_method != "inherit":
+                return override_method
+
+        return self.settings["chat_message_type"]
 
     def on_cheer(self, user: User, num_bits: int) -> None:
         """
@@ -191,11 +230,15 @@ class CheerAlertModule(BaseModule):
         payload = {"username": user.name, "num_bits": num_bits}
         self.bot.websocket_manager.emit("cheer", payload)
 
-        selected_phrase = self._get_cheer_phrase(payload, num_bits)
+        selected_phrase_key = self._get_cheer_phrase_key(num_bits)
+        selected_phrase = (
+            self.get_phrase(selected_phrase_key, **payload) if selected_phrase_key is not None else None
+        )
 
         if self.settings["chat_message"]:
             if selected_phrase is not None:
-                self.bot.send_message(selected_phrase, method=self.settings["chat_message_type"])
+                method = self._get_cheer_chat_method(selected_phrase_key if selected_phrase_key is not None else "")
+                self.bot.send_message(selected_phrase, method=method)
 
         if self.settings["whisper_message"]:
             if selected_phrase is not None:

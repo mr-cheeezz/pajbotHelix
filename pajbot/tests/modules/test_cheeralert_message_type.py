@@ -52,3 +52,41 @@ def test_cheer_alert_uses_selected_chat_message_type() -> None:
     module.on_cheer(user, 1)
 
     assert fake_bot.sent_messages == [("announce", "alice cheered 1")]
+
+
+def test_cheer_alert_5000_plus_can_override_message_type() -> None:
+    module = CheerAlertModule(bot=None)
+    module.settings = module.default_settings.copy()
+    module.settings["chat_message"] = True
+    module.settings["whisper_message"] = False
+    module.settings["chat_message_type"] = "say"
+    module.settings["fivethousand_bits"] = "{username} big cheer {num_bits}"
+    module.settings["fivethousand_bits_message_type"] = "announce"
+    module.settings["grant_points_per_100_bits"] = 0
+
+    fake_bot = FakeBot()
+    module.bot = fake_bot
+
+    user = FakeUser("alice")
+    module.on_cheer(user, 5000)
+
+    assert fake_bot.sent_messages == [("announce", "alice big cheer 5000")]
+
+
+def test_cheer_alert_5000_plus_inherit_uses_global_message_type() -> None:
+    module = CheerAlertModule(bot=None)
+    module.settings = module.default_settings.copy()
+    module.settings["chat_message"] = True
+    module.settings["whisper_message"] = False
+    module.settings["chat_message_type"] = "me"
+    module.settings["fivethousand_bits"] = "{username} big cheer {num_bits}"
+    module.settings["fivethousand_bits_message_type"] = "inherit"
+    module.settings["grant_points_per_100_bits"] = 0
+
+    fake_bot = FakeBot()
+    module.bot = fake_bot
+
+    user = FakeUser("alice")
+    module.on_cheer(user, 5000)
+
+    assert fake_bot.sent_messages == [("me", "alice big cheer 5000")]

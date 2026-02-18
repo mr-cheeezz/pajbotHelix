@@ -517,12 +517,55 @@ div.anchor {
     visibility: hidden;
 }
 
-#bot_moderators h4 {
-    padding-top: 35px;
+#bot_moderators {
+    max-width: 760px;
+    padding: 0.75rem;
 }
 
-#bot_moderators {
-    padding: 0.5rem 0;
+#bot_moderators table.ui.table {
+    width: 100% !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.6rem;
+    overflow: hidden;
+    background: var(--surface) !important;
+}
+
+#bot_moderators thead tr:first-child th {
+    padding: 0 !important;
+    border-top: 0 !important;
+}
+
+#bot_moderators tbody + thead tr:first-child th {
+    border-top: 1px solid var(--border) !important;
+}
+
+#bot_moderators h4 {
+    margin: 0;
+    padding: 0.85rem 0.95rem;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    background: var(--surface-soft);
+}
+
+#bot_moderators thead tr:nth-child(2) th {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+#bot_moderators tbody td {
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
+    vertical-align: middle;
+}
+
+#bot_moderators thead tr:nth-child(2) th:nth-child(2),
+#bot_moderators tbody td:nth-child(2) {
+    width: 100px;
+    text-align: right;
+    padding-right: 12px !important;
+    font-variant-numeric: tabular-nums;
 }
 
 .command-sample {
