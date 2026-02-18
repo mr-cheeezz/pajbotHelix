@@ -715,21 +715,23 @@ class ThirdPartyAlertsModule(BaseModule):
             (Decimal("100"), "tip_amount_100_message", "tip_amount_100_message_type"),
             (Decimal("250"), "tip_amount_250_message", "tip_amount_250_message_type"),
         ]
+        has_any_fixed_bucket_message = any(self.settings[message_key] != "" for _, message_key, _ in fixed_thresholds)
 
-        chosen_key: Optional[str] = None
-        chosen_method: Optional[str] = None
-        chosen_threshold = Decimal("0")
+        # Amount buckets are independent. We select the matching bucket by amount first,
+        # then either use that bucket's message or fall back to the global default.
+        selected_bucket: Optional[tuple[str, str]] = None
+        selected_threshold = Decimal("0")
         for threshold, message_key, method_key in fixed_thresholds:
-            message_template = self.settings[message_key]
-            if message_template == "":
-                continue
-            if amount >= threshold and threshold >= chosen_threshold:
-                chosen_threshold = threshold
-                chosen_key = message_key
-                chosen_method = self.settings[method_key]
+            if amount >= threshold and threshold >= selected_threshold:
+                selected_threshold = threshold
+                selected_bucket = (message_key, method_key)
 
-        if chosen_key is not None and chosen_method is not None:
-            return chosen_key, chosen_method
+        if selected_bucket is not None:
+            message_key, method_key = selected_bucket
+            if self.settings[message_key] != "":
+                return message_key, self.settings[method_key]
+            if has_any_fixed_bucket_message:
+                return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
 
         tier_candidates: list[tuple[Decimal, str]] = []
 
