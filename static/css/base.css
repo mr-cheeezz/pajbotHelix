@@ -278,6 +278,14 @@ div.pui.class.undefined {
     padding: 0.75rem 0;
 }
 
+#stats,
+#userprofile,
+#top_users,
+#bot_moderators {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
 #userprofile .mediumtable,
 #stats .minitable,
 #top_users table {
@@ -635,11 +643,23 @@ a {
 .ui.input input,
 .ui.form input[type="text"],
 .ui.form input[type="number"],
+.ui.form select,
+.ui.form select.ui.dropdown,
 .ui.form textarea,
 .ui.form .ui.dropdown {
     background: var(--surface) !important;
     color: var(--page-text) !important;
     border-color: var(--border) !important;
+}
+
+.ui.form select option {
+    background: var(--surface);
+    color: var(--page-text);
+}
+
+.ui.form label,
+.ui.form .field > label {
+    color: var(--page-text) !important;
 }
 
 .ui.input input::placeholder,
@@ -669,6 +689,8 @@ a {
 
 .ui.menu.inverted .ui.dropdown .menu > .item,
 .ui.menu.inverted .ui.simple.dropdown .menu > .item,
+.ui.menu.inverted .ui.dropdown .menu a.item,
+.ui.menu.inverted .ui.simple.dropdown .menu a.item,
 .ui.menu.inverted .ui.dropdown .menu > .item > a,
 .ui.menu.inverted .ui.simple.dropdown .menu > .item > a {
     color: var(--page-text) !important;
@@ -749,6 +771,10 @@ div.chat div.chat-message {
         padding: 0.5rem 0.25rem;
     }
 
+    #bot_moderators {
+        padding: 0.5rem 0.25rem;
+    }
+
     #check_points {
         min-width: 0;
     }
@@ -767,7 +793,4 @@ div.chat div.chat-message {
         -webkit-overflow-scrolling: touch;
     }
 
-    #bot_moderators {
-        padding: 0.5rem 0.25rem;
-    }
 }

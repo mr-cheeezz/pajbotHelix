@@ -57,11 +57,11 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="chat_alert_tip_message",
-            label="Default tip alert message | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
+            label="Fallback tip alert message, used when no configured amount bucket message matches. Leave empty to disable fallback | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
-            default="[ {provider} ] {username} tipped {amount} {currency}! {message}",
-            constraints={"min_str_len": 10, "max_str_len": 400},
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
         ),
         ModuleSetting(
             key="chat_alert_tip_message_type",
@@ -771,7 +771,8 @@ class ThirdPartyAlertsModule(BaseModule):
                 currency=event.currency,
                 message=event.message,
             )
-            self.bot.send_message(chat_message, method=tip_message_type)
+            if chat_message.strip() != "":
+                self.bot.send_message(chat_message, method=tip_message_type)
 
         self._grant_points_for_tip(event)
 
