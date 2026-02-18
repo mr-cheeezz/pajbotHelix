@@ -272,8 +272,14 @@ div.pui.class.undefined {
     width: 100%;
 }
 
+#stats,
+#userprofile,
+#top_users {
+    padding: 0.25rem 0;
+}
+
 #check_points {
-    width: 30%;
+    width: min(100%, 420px);
     min-width: 300px;
 }
 
@@ -532,13 +538,13 @@ img.emote {
 }
 
 :root {
-    --page-bg: #f3f6fb;
-    --page-text: #1e293b;
-    --surface: #ffffff;
-    --surface-soft: #e9edf5;
-    --border: #cfd6e2;
-    --muted: #64748b;
-    --link: #155eef;
+    --page-bg: #f1f1f3;
+    --page-text: #22252b;
+    --surface: #fafafa;
+    --surface-soft: #ececef;
+    --border: #d1d1d6;
+    --muted: #6a6f79;
+    --link: #2f4f7f;
     --chat-even: #c8c8c8;
     --chat-odd: #d9d9d9;
     --chat-border: #b4b4b4;
@@ -546,17 +552,17 @@ img.emote {
 }
 
 :root[data-theme="dark"] {
-    --page-bg: #0f172a;
-    --page-text: #e2e8f0;
-    --surface: #1e293b;
-    --surface-soft: #27364d;
-    --border: #334155;
-    --muted: #94a3b8;
-    --link: #7dd3fc;
-    --chat-even: #1f2937;
-    --chat-odd: #273449;
-    --chat-border: #334155;
-    --chat-text: #d1d5db;
+    --page-bg: #16171a;
+    --page-text: #e3e3e6;
+    --surface: #212227;
+    --surface-soft: #2b2d33;
+    --border: #3a3d45;
+    --muted: #a3a6ae;
+    --link: #86a9d8;
+    --chat-even: #26282f;
+    --chat-odd: #2d3038;
+    --chat-border: #3a3d45;
+    --chat-text: #d5d7dd;
 }
 
 html,
@@ -676,7 +682,35 @@ div.chat div.chat-message {
 }
 
 @media (max-width: 600px) {
+    .main.container {
+        padding: 65px 1rem 1rem 1rem;
+    }
+
     .theme-toggle-button .theme-toggle-label {
         display: none;
+    }
+
+    #stats,
+    #userprofile,
+    #top_users {
+        padding: 0.25rem;
+    }
+
+    #check_points {
+        min-width: 0;
+    }
+
+    div.stats.minitable,
+    div.mediumtable {
+        width: 100%;
+        float: none;
+    }
+
+    #stats table,
+    #userprofile table,
+    #top_users table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }

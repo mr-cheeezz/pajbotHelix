@@ -42,7 +42,7 @@ class ExternalTipEvent:
 
 class ThirdPartyAlertsModule(BaseModule):
     ID = __name__.split(".")[-1]
-    NAME = "Third Party Alerts"
+    NAME = "Streamlabs / StreamElements Alerts"
     DESCRIPTION = "Fetches tip/donation alerts from StreamElements or Streamlabs and can grant points."
     CATEGORY = "Feature"
     ENABLED_DEFAULT = True
@@ -57,11 +57,163 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="chat_alert_tip_message",
-            label="External tip alert message | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
+            label="Default tip alert message | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="[ {provider} ] {username} tipped {amount} {currency}! {message}",
             constraints={"min_str_len": 10, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="chat_alert_tip_message_type",
+            label="Method to use when sending tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_1_message",
+            label="Tip alert message for 1+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_1_message_type",
+            label="Message type for 1+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_5_message",
+            label="Tip alert message for 5+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_5_message_type",
+            label="Message type for 5+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_10_message",
+            label="Tip alert message for 10+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_10_message_type",
+            label="Message type for 10+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_20_message",
+            label="Tip alert message for 20+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_20_message_type",
+            label="Message type for 20+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_50_message",
+            label="Tip alert message for 50+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_50_message_type",
+            label="Message type for 50+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_100_message",
+            label="Tip alert message for 100+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_100_message_type",
+            label="Message type for 100+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="tip_amount_250_message",
+            label="Tip alert message for 250+ amount (provider currency). Leave empty to disable this bucket",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="tip_amount_250_message_type",
+            label="Message type for 250+ amount tip alerts",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
+            key="chat_alert_tip_message_tier_2_min",
+            label="Tier 2 minimum amount (in tip currency). 0 = off",
+            type="number",
+            required=True,
+            default=0,
+            constraints={"min_value": 0},
+        ),
+        ModuleSetting(
+            key="chat_alert_tip_message_tier_2",
+            label="Tier 2 tip alert message (used when amount >= tier 2 minimum). Leave empty to disable",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="chat_alert_tip_message_tier_3_min",
+            label="Tier 3 minimum amount (in tip currency). 0 = off",
+            type="number",
+            required=True,
+            default=0,
+            constraints={"min_value": 0},
+        ),
+        ModuleSetting(
+            key="chat_alert_tip_message_tier_3",
+            label="Tier 3 tip alert message (used when amount >= tier 3 minimum). Leave empty to disable",
+            type="text",
+            required=True,
+            default="",
+            constraints={"min_str_len": 0, "max_str_len": 400},
         ),
         ModuleSetting(
             key="grant_points_per_tip",
@@ -157,6 +309,13 @@ class ThirdPartyAlertsModule(BaseModule):
             if value:
                 return str(value)
         return "USD"
+
+    @staticmethod
+    def _format_amount(amount: Decimal) -> str:
+        text = format(amount, "f")
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return text
 
     def _resolve_streamelements_channel_id(self) -> Optional[str]:
         if self.bot is None:
@@ -546,20 +705,71 @@ class ThirdPartyAlertsModule(BaseModule):
             if grant_message != "":
                 self.bot.say(grant_message.format(user=user, points=points_to_grant, provider=event.provider))
 
+    def _select_tip_message_and_type(self, amount: Decimal) -> tuple[str, str]:
+        fixed_thresholds = [
+            (Decimal("1"), "tip_amount_1_message", "tip_amount_1_message_type"),
+            (Decimal("5"), "tip_amount_5_message", "tip_amount_5_message_type"),
+            (Decimal("10"), "tip_amount_10_message", "tip_amount_10_message_type"),
+            (Decimal("20"), "tip_amount_20_message", "tip_amount_20_message_type"),
+            (Decimal("50"), "tip_amount_50_message", "tip_amount_50_message_type"),
+            (Decimal("100"), "tip_amount_100_message", "tip_amount_100_message_type"),
+            (Decimal("250"), "tip_amount_250_message", "tip_amount_250_message_type"),
+        ]
+
+        chosen_key: Optional[str] = None
+        chosen_method: Optional[str] = None
+        chosen_threshold = Decimal("0")
+        for threshold, message_key, method_key in fixed_thresholds:
+            message_template = self.settings[message_key]
+            if message_template == "":
+                continue
+            if amount >= threshold and threshold >= chosen_threshold:
+                chosen_threshold = threshold
+                chosen_key = message_key
+                chosen_method = self.settings[method_key]
+
+        if chosen_key is not None and chosen_method is not None:
+            return chosen_key, chosen_method
+
+        tier_candidates: list[tuple[Decimal, str]] = []
+
+        tier_2_message = self.settings["chat_alert_tip_message_tier_2"]
+        tier_2_min = self.settings["chat_alert_tip_message_tier_2_min"]
+        if tier_2_message != "" and tier_2_min > 0:
+            tier_candidates.append((Decimal(tier_2_min), "chat_alert_tip_message_tier_2"))
+
+        tier_3_message = self.settings["chat_alert_tip_message_tier_3"]
+        tier_3_min = self.settings["chat_alert_tip_message_tier_3_min"]
+        if tier_3_message != "" and tier_3_min > 0:
+            tier_candidates.append((Decimal(tier_3_min), "chat_alert_tip_message_tier_3"))
+
+        if len(tier_candidates) == 0:
+            return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
+
+        selected_key = "chat_alert_tip_message"
+        selected_threshold = Decimal("0")
+        for threshold, key in tier_candidates:
+            if amount >= threshold and threshold >= selected_threshold:
+                selected_threshold = threshold
+                selected_key = key
+
+        return selected_key, self.settings["chat_alert_tip_message_type"]
+
     def _handle_tip_event(self, event: ExternalTipEvent) -> None:
         if self.bot is None:
             return
 
         if self.settings["chat_alert_tip_enabled"]:
+            tip_message_key, tip_message_type = self._select_tip_message_and_type(event.amount)
             chat_message = self.get_phrase(
-                "chat_alert_tip_message",
+                tip_message_key,
                 provider=event.provider,
                 username=event.username,
-                amount=f"{event.amount.normalize()}",
+                amount=self._format_amount(event.amount),
                 currency=event.currency,
                 message=event.message,
             )
-            self.bot.say(chat_message)
+            self.bot.send_message(chat_message, method=tip_message_type)
 
         self._grant_points_for_tip(event)
 

@@ -32,6 +32,14 @@ class CheerAlertModule(BaseModule):
             default=True,
         ),
         ModuleSetting(
+            key="chat_message_type",
+            label="Method to use when sending cheer chat messages",
+            type="options",
+            required=True,
+            default="say",
+            options=["announce", "say", "me"],
+        ),
+        ModuleSetting(
             key="whisper_message",
             label="Enable whisper messages for users who cheer bits",
             type="boolean",
@@ -150,6 +158,28 @@ class CheerAlertModule(BaseModule):
     def __init__(self, bot: Optional[Bot]) -> None:
         super().__init__(bot)
 
+    def _get_cheer_phrase(self, payload: dict[str, str], num_bits: int) -> Optional[str]:
+        if num_bits >= 25000 and self.settings["twentyfivethousand_bits"] != "":
+            return self.get_phrase("twentyfivethousand_bits", **payload)
+        if num_bits >= 10000 and self.settings["tenthousand_bits"] != "":
+            return self.get_phrase("tenthousand_bits", **payload)
+        if num_bits >= 5000 and self.settings["fivethousand_bits"] != "":
+            return self.get_phrase("fivethousand_bits", **payload)
+        if num_bits >= 1500 and self.settings["fifteenhundred_bits"] != "":
+            return self.get_phrase("fifteenhundred_bits", **payload)
+        if num_bits >= 500 and self.settings["fivehundred_bits"] != "":
+            return self.get_phrase("fivehundred_bits", **payload)
+        if num_bits == 420 and self.settings["fourtwenty_bits"] != "":
+            return self.get_phrase("fourtwenty_bits", **payload)
+        if num_bits >= 100 and self.settings["hundred_bits"] != "":
+            return self.get_phrase("hundred_bits", **payload)
+        if num_bits == 69 and self.settings["sixnine_bits"] != "":
+            return self.get_phrase("sixnine_bits", **payload)
+        if self.settings["one_bit"] != "":
+            return self.get_phrase("one_bit", **payload)
+
+        return None
+
     def on_cheer(self, user: User, num_bits: int) -> None:
         """
         A user just cheered bits.
@@ -161,89 +191,19 @@ class CheerAlertModule(BaseModule):
         payload = {"username": user.name, "num_bits": num_bits}
         self.bot.websocket_manager.emit("cheer", payload)
 
+        selected_phrase = self._get_cheer_phrase(payload, num_bits)
+
         if self.settings["chat_message"]:
-            if num_bits >= 25000 and self.settings["twentyfivethousand_bits"] != "":
-                self.bot.say(self.get_phrase("twentyfivethousand_bits", **payload))
-            elif num_bits >= 10000 and self.settings["tenthousand_bits"] != "":
-                self.bot.say(self.get_phrase("tenthousand_bits", **payload))
-            elif num_bits >= 5000 and self.settings["fivethousand_bits"] != "":
-                self.bot.say(self.get_phrase("fivethousand_bits", **payload))
-            elif num_bits >= 1500 and self.settings["fifteenhundred_bits"] != "":
-                self.bot.say(self.get_phrase("fifteenhundred_bits", **payload))
-            elif num_bits >= 500 and self.settings["fivehundred_bits"] != "":
-                self.bot.say(self.get_phrase("fivehundred_bits", **payload))
-            elif num_bits == 420 and self.settings["fourtwenty_bits"] != "":
-                self.bot.say(self.get_phrase("fourtwenty_bits", **payload))
-            elif num_bits >= 100 and self.settings["hundred_bits"] != "":
-                self.bot.say(self.get_phrase("hundred_bits", **payload))
-            elif num_bits == 69 and self.settings["sixnine_bits"] != "":
-                self.bot.say(self.get_phrase("sixnine_bits", **payload))
-            elif self.settings["one_bit"] != "":
-                self.bot.say(self.get_phrase("one_bit", **payload))
+            if selected_phrase is not None:
+                self.bot.send_message(selected_phrase, method=self.settings["chat_message_type"])
 
         if self.settings["whisper_message"]:
-            if num_bits >= 25000 and self.settings["twentyfivethousand_bits"] != "":
+            if selected_phrase is not None:
                 self.bot.execute_delayed(
                     self.settings["whisper_after"],
                     self.bot.whisper,
                     user,
-                    self.get_phrase("twentyfivethousand_bits", **payload),
-                )
-            elif num_bits >= 10000 and self.settings["tenthousand_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("tenthousand_bits", **payload),
-                )
-            elif num_bits >= 5000 and self.settings["fivethousand_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("fivethousand_bits", **payload),
-                )
-            elif num_bits >= 1500 and self.settings["fifteenhundred_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("fifteenhundred_bits", **payload),
-                )
-            elif num_bits >= 500 and self.settings["fivehundred_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("fivehundred_bits", **payload),
-                )
-            elif num_bits == 420 and self.settings["fourtwenty_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("fourtwenty_bits", **payload),
-                )
-            elif num_bits >= 100 and self.settings["hundred_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("hundred_bits", **payload),
-                )
-            elif num_bits == 69 and self.settings["sixnine_bits"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("sixnine_bits", **payload),
-                )
-            elif self.settings["one_bit"] != "":
-                self.bot.execute_delayed(
-                    self.settings["whisper_after"],
-                    self.bot.whisper,
-                    user,
-                    self.get_phrase("one_bit", **payload),
+                    selected_phrase,
                 )
 
         if self.settings["grant_points_per_100_bits"] <= 0:
