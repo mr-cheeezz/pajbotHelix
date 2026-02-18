@@ -815,6 +815,19 @@ a {
     color: #ffffff !important;
 }
 
+.admin-blue-menu.ui.menu .item,
+.admin-blue-menu.ui.menu .item > a,
+.admin-blue-menu.ui.menu .item:hover,
+.admin-blue-menu.ui.menu .item:hover > a,
+.admin-blue-menu.ui.menu .item.active,
+.admin-blue-menu.ui.menu .item.active > a,
+.admin-blue-menu.ui.menu .ui.simple.dropdown.item,
+.admin-blue-menu.ui.menu .ui.simple.dropdown.item:hover,
+.admin-blue-menu.ui.menu .ui.simple.dropdown.item.active,
+.admin-blue-menu.ui.menu .ui.simple.dropdown.item .dropdown.icon {
+    color: #ffffff !important;
+}
+
 .admin-blue-menu .item.active {
     background: #1b6fb0 !important;
 }
