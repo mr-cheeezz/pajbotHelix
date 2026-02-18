@@ -561,10 +561,25 @@ class ThirdPartyAlertsModule(BaseModule):
 
         socket_token = self._resolve_streamlabs_socket_token()
         token_query = urllib.parse.quote(socket_token, safe="")
-        ws = websocket.create_connection(
-            f"wss://sockets.streamlabs.com/socket.io/?EIO=3&transport=websocket&token={token_query}",
-            timeout=30,
-        )
+
+        ws = None
+        last_error: Optional[Exception] = None
+        for eio_version in (4, 3):
+            try:
+                ws = websocket.create_connection(
+                    f"wss://sockets.streamlabs.com/socket.io/?EIO={eio_version}&transport=websocket&token={token_query}",
+                    timeout=30,
+                )
+                log.info("Connected to Streamlabs realtime socket (EIO=%s)", eio_version)
+                break
+            except Exception as ex:
+                last_error = ex
+
+        if ws is None:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError("Unable to establish Streamlabs realtime socket connection")
+
         try:
             connected_namespace = False
             while not self._realtime_stop_event.is_set():
@@ -576,9 +591,20 @@ class ThirdPartyAlertsModule(BaseModule):
                     raw_message = raw_message.decode("utf-8", "replace")
 
                 if raw_message.startswith("0"):
+                    # Open packet received, request connection to default namespace.
                     ws.send("40")
+                    continue
+
+                if raw_message.startswith("40"):
                     connected_namespace = True
                     continue
+
+                if raw_message.startswith("44"):
+                    # connect_error packet from socket.io
+                    raise RuntimeError(f"Streamlabs socket connect_error: {raw_message}")
+
+                if raw_message.startswith("41"):
+                    raise RuntimeError("Streamlabs socket disconnected by remote host")
 
                 if raw_message == "2":
                     ws.send("3")
