@@ -150,39 +150,12 @@ class FakeBot:
         self.sent_messages.append((method, message))
 
 
-def test_tiered_tip_message_selects_highest_matching_threshold() -> None:
-    module = ThirdPartyAlertsModule(bot=None)
-    module.settings = module.default_settings.copy()
-    module.settings["chat_alert_tip_enabled"] = True
-    module.settings["chat_alert_tip_message_type"] = "me"
-    module.settings["chat_alert_tip_message"] = "default {amount}"
-    module.settings["chat_alert_tip_message_tier_2_min"] = 5
-    module.settings["chat_alert_tip_message_tier_2"] = "tier2 {amount}"
-    module.settings["chat_alert_tip_message_tier_3_min"] = 20
-    module.settings["chat_alert_tip_message_tier_3"] = "tier3 {amount}"
-    module.bot = FakeBot()
-
-    event = ExternalTipEvent(
-        event_id="id-1",
-        username="alice",
-        amount=Decimal("25"),
-        currency="USD",
-        message="pog",
-        provider="Streamlabs",
-    )
-    module._handle_tip_event(event)
-
-    assert module.bot.sent_messages == [("me", "tier3 25")]
-
-
-def test_fixed_tip_amount_bucket_overrides_tiers_and_uses_bucket_message_type() -> None:
+def test_fixed_tip_amount_bucket_uses_bucket_message_type() -> None:
     module = ThirdPartyAlertsModule(bot=None)
     module.settings = module.default_settings.copy()
     module.settings["chat_alert_tip_enabled"] = True
     module.settings["chat_alert_tip_message_type"] = "say"
     module.settings["chat_alert_tip_message"] = "default {amount}"
-    module.settings["chat_alert_tip_message_tier_2_min"] = 20
-    module.settings["chat_alert_tip_message_tier_2"] = "tier2 {amount}"
     module.settings["tip_amount_50_message"] = "bucket50 {amount}"
     module.settings["tip_amount_50_message_type"] = "announce"
     module.bot = FakeBot()

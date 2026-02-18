@@ -57,7 +57,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="chat_alert_tip_message",
-            label="Fallback tip alert message, used when no configured amount bucket message matches. Leave empty to disable fallback | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
+            label="Optional fallback tip alert message (full message), used only when the matched amount bucket has no message. Leave empty to disable fallback | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -65,7 +65,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="chat_alert_tip_message_type",
-            label="Method to use when sending tip alerts",
+            label="Method to use for fallback tip alerts",
             type="options",
             required=True,
             default="say",
@@ -73,7 +73,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_1_message",
-            label="Tip alert message for 1+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 1+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -89,7 +89,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_5_message",
-            label="Tip alert message for 5+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 5+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -105,7 +105,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_10_message",
-            label="Tip alert message for 10+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 10+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -121,7 +121,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_20_message",
-            label="Tip alert message for 20+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 20+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -137,7 +137,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_50_message",
-            label="Tip alert message for 50+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 50+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -153,7 +153,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_100_message",
-            label="Tip alert message for 100+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 100+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -169,7 +169,7 @@ class ThirdPartyAlertsModule(BaseModule):
         ),
         ModuleSetting(
             key="tip_amount_250_message",
-            label="Tip alert message for 250+ amount (provider currency). Leave empty to disable this bucket",
+            label="Tip alert message for 250+ amount (full independent message). Leave empty to disable this bucket | Available arguments: {provider}, {username}, {amount}, {currency}, {message}",
             type="text",
             required=True,
             default="",
@@ -182,38 +182,6 @@ class ThirdPartyAlertsModule(BaseModule):
             required=True,
             default="say",
             options=["announce", "say", "me"],
-        ),
-        ModuleSetting(
-            key="chat_alert_tip_message_tier_2_min",
-            label="Tier 2 minimum amount (in tip currency). 0 = off",
-            type="number",
-            required=True,
-            default=0,
-            constraints={"min_value": 0},
-        ),
-        ModuleSetting(
-            key="chat_alert_tip_message_tier_2",
-            label="Tier 2 tip alert message (used when amount >= tier 2 minimum). Leave empty to disable",
-            type="text",
-            required=True,
-            default="",
-            constraints={"min_str_len": 0, "max_str_len": 400},
-        ),
-        ModuleSetting(
-            key="chat_alert_tip_message_tier_3_min",
-            label="Tier 3 minimum amount (in tip currency). 0 = off",
-            type="number",
-            required=True,
-            default=0,
-            constraints={"min_value": 0},
-        ),
-        ModuleSetting(
-            key="chat_alert_tip_message_tier_3",
-            label="Tier 3 tip alert message (used when amount >= tier 3 minimum). Leave empty to disable",
-            type="text",
-            required=True,
-            default="",
-            constraints={"min_str_len": 0, "max_str_len": 400},
         ),
         ModuleSetting(
             key="grant_points_per_tip",
@@ -733,29 +701,7 @@ class ThirdPartyAlertsModule(BaseModule):
             if has_any_fixed_bucket_message:
                 return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
 
-        tier_candidates: list[tuple[Decimal, str]] = []
-
-        tier_2_message = self.settings["chat_alert_tip_message_tier_2"]
-        tier_2_min = self.settings["chat_alert_tip_message_tier_2_min"]
-        if tier_2_message != "" and tier_2_min > 0:
-            tier_candidates.append((Decimal(tier_2_min), "chat_alert_tip_message_tier_2"))
-
-        tier_3_message = self.settings["chat_alert_tip_message_tier_3"]
-        tier_3_min = self.settings["chat_alert_tip_message_tier_3_min"]
-        if tier_3_message != "" and tier_3_min > 0:
-            tier_candidates.append((Decimal(tier_3_min), "chat_alert_tip_message_tier_3"))
-
-        if len(tier_candidates) == 0:
-            return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
-
-        selected_key = "chat_alert_tip_message"
-        selected_threshold = Decimal("0")
-        for threshold, key in tier_candidates:
-            if amount >= threshold and threshold >= selected_threshold:
-                selected_threshold = threshold
-                selected_key = key
-
-        return selected_key, self.settings["chat_alert_tip_message_type"]
+        return "chat_alert_tip_message", self.settings["chat_alert_tip_message_type"]
 
     def _handle_tip_event(self, event: ExternalTipEvent) -> None:
         if self.bot is None:

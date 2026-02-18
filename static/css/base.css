@@ -640,6 +640,11 @@ a {
     background: var(--surface-soft) !important;
 }
 
+.ui.table td,
+.ui.table th {
+    padding-left: 5px !important;
+}
+
 .ui.input input,
 .ui.form input[type="text"],
 .ui.form input[type="number"],
