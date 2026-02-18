@@ -86,6 +86,7 @@ class ThirdPartyAlertsModule(BaseModule):
 
         self.provider = "none"
         self.token = ""
+        self.streamlabs_socket_token = ""
         self.poll_seconds = 20
         self.realtime_enabled = True
         self.se_channel_id: Optional[str] = None
@@ -110,6 +111,7 @@ class ThirdPartyAlertsModule(BaseModule):
 
         self.provider = raw_provider
         self.token = provider_config.get("token", "").strip()
+        self.streamlabs_socket_token = provider_config.get("socket_token", "").strip()
 
         try:
             self.poll_seconds = int(provider_config.get("poll_seconds", "20"))
@@ -218,7 +220,7 @@ class ThirdPartyAlertsModule(BaseModule):
 
     def _fetch_streamlabs_donations(self) -> list[ExternalTipEvent]:
         if not self.token:
-            log.warning("alerts_provider is streamlabs but no token configured")
+            log.info("Streamlabs polling is disabled because no access token is configured")
             return []
 
         response = requests.get(
@@ -395,6 +397,13 @@ class ThirdPartyAlertsModule(BaseModule):
             raise ValueError("Streamlabs socket token response was missing socket_token")
         return socket_token
 
+    def _resolve_streamlabs_socket_token(self) -> str:
+        if self.streamlabs_socket_token:
+            return self.streamlabs_socket_token
+        if self.token:
+            return self._streamlabs_fetch_socket_token()
+        raise RuntimeError("No Streamlabs token configured (set socket_token or token)")
+
     def _run_streamelements_realtime_once(self) -> None:
         if websocket is None:
             raise RuntimeError("websocket-client is not installed")
@@ -438,10 +447,8 @@ class ThirdPartyAlertsModule(BaseModule):
     def _run_streamlabs_realtime_once(self) -> None:
         if websocket is None:
             raise RuntimeError("websocket-client is not installed")
-        if not self.token:
-            raise RuntimeError("No Streamlabs token configured")
 
-        socket_token = self._streamlabs_fetch_socket_token()
+        socket_token = self._resolve_streamlabs_socket_token()
         token_query = urllib.parse.quote(socket_token, safe="")
         ws = websocket.create_connection(
             f"wss://sockets.streamlabs.com/socket.io/?EIO=3&transport=websocket&token={token_query}",

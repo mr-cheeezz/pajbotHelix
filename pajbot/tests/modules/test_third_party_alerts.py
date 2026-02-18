@@ -127,3 +127,16 @@ def test_extract_streamlabs_socket_events() -> None:
     assert events[0].event_id == "22"
     assert events[0].username == "delta"
     assert events[0].amount == Decimal("2.00")
+
+
+def test_resolve_streamlabs_socket_token_prefers_configured_token(monkeypatch) -> None:
+    module = ThirdPartyAlertsModule(bot=None)
+    module.streamlabs_socket_token = "socket-abc"
+
+    monkeypatch.setattr(
+        ThirdPartyAlertsModule,
+        "_streamlabs_fetch_socket_token",
+        lambda self: (_ for _ in ()).throw(AssertionError("should not fetch socket token")),
+    )
+
+    assert module._resolve_streamlabs_socket_token() == "socket-abc"
