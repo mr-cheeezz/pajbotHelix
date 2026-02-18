@@ -32,6 +32,7 @@ from pajbot.modules.chat_alerts.livealert import LiveAlertModule
 from pajbot.modules.chat_alerts.newchatteralert import NewChatterAlertModule
 from pajbot.modules.chat_alerts.raidalert import RaidAlertModule
 from pajbot.modules.chat_alerts.subalert import SubAlertModule
+from pajbot.modules.chat_alerts.third_party_alerts import ThirdPartyAlertsModule
 from pajbot.modules.chatters_refresh import ChattersRefreshModule
 from pajbot.modules.clr_overlay import CLROverlayModule
 from pajbot.modules.clr_overlay.emotecombo import EmoteComboModule
@@ -145,6 +146,7 @@ available_modules = [
     StreamUpdateModule,
     SubAlertModule,
     SubscriberFetchModule,
+    ThirdPartyAlertsModule,
     TopModule,
     TriviaModule,
     TypeEmoteQuestModule,

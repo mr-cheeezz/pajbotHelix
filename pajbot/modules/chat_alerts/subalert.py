@@ -180,6 +180,23 @@ class SubAlertModule(BaseModule):
             default="{user} was given {points} points for subscribing! FeelsAmazingMan",
             constraints={"min_str_len": 0, "max_str_len": 300},
         ),
+        ModuleSetting(
+            key="grant_points_on_gift_sub",
+            label="Give points to the gifter for each gifted sub. 0 = off",
+            type="number",
+            required=True,
+            placeholder="",
+            default=0,
+            constraints={"min_value": 0, "max_value": 1000000},
+        ),
+        ModuleSetting(
+            key="alert_message_points_given_gifter",
+            label="Message to announce points given to sub gifter, leave empty to disable. | Available arguments: {user}, {points}, {gift_count}",
+            type="text",
+            required=True,
+            default="{user} was given {points} points for gifting {gift_count} sub(s)! FeelsAmazingMan",
+            constraints={"min_str_len": 0, "max_str_len": 300},
+        ),
     ]
 
     def __init__(self, bot: Optional[Bot]) -> None:
@@ -196,6 +213,23 @@ class SubAlertModule(BaseModule):
         alert_message = self.settings["alert_message_points_given"]
         if alert_message != "":
             self.bot.say(alert_message.format(user=user, points=self.settings["grant_points_on_sub"]))
+
+    def on_gift_sub_shared(self, user: User, gift_count: int = 1) -> None:
+        assert self.bot is not None
+
+        if gift_count <= 0:
+            return
+
+        points_per_gift = self.settings["grant_points_on_gift_sub"]
+        if points_per_gift <= 0:
+            return
+
+        points_to_grant = points_per_gift * gift_count
+        user.points += points_to_grant
+
+        alert_message = self.settings["alert_message_points_given_gifter"]
+        if alert_message != "":
+            self.bot.say(alert_message.format(user=user, points=points_to_grant, gift_count=gift_count))
 
     def on_new_sub(self, user: User, sub_type: str, gifted_by: Optional[str] = None) -> None:
         """
@@ -340,6 +374,10 @@ class SubAlertModule(BaseModule):
                 receiver_login = tags["msg-param-recipient-user-name"]
                 receiver_name = tags["msg-param-recipient-display-name"]
                 receiver = User.from_basics(db_session, UserBasics(receiver_id, receiver_login, receiver_name))
+                giver = User.from_basics(db_session, UserBasics(source.id, source.login, source.name))
+                is_anonymous_gift = tags.get("msg-param-anon-gift", "0") == "1"
+                if not is_anonymous_gift:
+                    self.on_gift_sub_shared(giver, gift_count=1)
 
                 if num_months > 1:
                     # Resub
@@ -351,6 +389,20 @@ class SubAlertModule(BaseModule):
                     # New sub
                     self.on_new_sub(receiver, tags["msg-param-sub-plan"], tags["display-name"])
                     HandlerManager.trigger("on_user_sub", user=receiver)
+        elif tags["msg-id"] == "submysterygift":
+            # This event is for one user gifting multiple subs at once.
+            with DBManager.create_session_scope() as db_session:
+                giver = User.from_basics(db_session, UserBasics(source.id, source.login, source.name))
+                is_anonymous_gift = tags.get("msg-param-anon-gift", "0") == "1"
+                if is_anonymous_gift:
+                    return True
+
+                try:
+                    gift_count = int(tags.get("msg-param-mass-gift-count", "0"))
+                except ValueError:
+                    gift_count = 0
+
+                self.on_gift_sub_shared(giver, gift_count=gift_count)
         elif tags["msg-id"] == "sub":
             if "msg-param-sub-plan" not in tags:
                 log.debug(f"subalert msg-id is sub, but missing msg-param-sub-plan: {tags}")

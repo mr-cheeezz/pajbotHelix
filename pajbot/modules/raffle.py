@@ -46,8 +46,8 @@ class RaffleModule(BaseModule):
             label="Start message | Available arguments: {length}, {points}",
             type="text",
             required=True,
-            placeholder=".me A raffle has begun for {points} points. Type !join to join the raffle! The raffle will end in {length} seconds",
-            default=".me A raffle has begun for {points} points. Type !join to join the raffle! The raffle will end in {length} seconds",
+            placeholder=".me A raffle has begun for {points} points. Type {join_command} to join the raffle! The raffle will end in {length} seconds",
+            default=".me A raffle has begun for {points} points. Type {join_command} to join the raffle! The raffle will end in {length} seconds",
             constraints={"min_str_len": 10, "max_str_len": 400},
         ),
         ModuleSetting(
@@ -55,8 +55,8 @@ class RaffleModule(BaseModule):
             label="Running message | Available arguments: {length}, {points}",
             type="text",
             required=True,
-            placeholder=".me The raffle for {points} points ends in {length} seconds! Type !join to join the raffle!",
-            default=".me The raffle for {points} points ends in {length} seconds! Type !join to join the raffle!",
+            placeholder=".me The raffle for {points} points ends in {length} seconds! Type {join_command} to join the raffle!",
+            default=".me The raffle for {points} points ends in {length} seconds! Type {join_command} to join the raffle!",
             constraints={"min_str_len": 10, "max_str_len": 400},
         ),
         ModuleSetting(
@@ -64,8 +64,8 @@ class RaffleModule(BaseModule):
             label="Start message (multi) | Available arguments: {length}, {points}",
             type="text",
             required=True,
-            placeholder=".me A multi-raffle has begun for {points} points. Type !join to join the raffle! The raffle will end in {length} seconds",
-            default=".me A multi-raffle has begun for {points} points. Type !join to join the raffle! The raffle will end in {length} seconds",
+            placeholder=".me A multi-raffle has begun for {points} points. Type {join_command} to join the raffle! The raffle will end in {length} seconds",
+            default=".me A multi-raffle has begun for {points} points. Type {join_command} to join the raffle! The raffle will end in {length} seconds",
             constraints={"min_str_len": 10, "max_str_len": 400},
         ),
         ModuleSetting(
@@ -73,9 +73,18 @@ class RaffleModule(BaseModule):
             label="Running message (multi) | Available arguments: {length}, {points}",
             type="text",
             required=True,
-            placeholder=".me The multi-raffle for {points} points ends in {length} seconds! Type !join to join the raffle!",
-            default=".me The multi-raffle for {points} points ends in {length} seconds! Type !join to join the raffle!",
+            placeholder=".me The multi-raffle for {points} points ends in {length} seconds! Type {join_command} to join the raffle!",
+            default=".me The multi-raffle for {points} points ends in {length} seconds! Type {join_command} to join the raffle!",
             constraints={"min_str_len": 10, "max_str_len": 400},
+        ),
+        ModuleSetting(
+            key="join_command",
+            label="Raffle join command trigger (without ! prefix)",
+            type="text",
+            required=True,
+            placeholder="joinraffle",
+            default="joinraffle",
+            constraints={"min_str_len": 1, "max_str_len": 32},
         ),
         ModuleSetting(
             key="single_max_points",
@@ -176,7 +185,44 @@ class RaffleModule(BaseModule):
         self.raffle_points = 0
         self.raffle_length = 0
 
+    @staticmethod
+    def _sanitize_join_command_alias(alias: str) -> str:
+        cleaned = alias.strip().lower()
+        if cleaned.startswith("!"):
+            cleaned = cleaned[1:]
+
+        allowed = "abcdefghijklmnopqrstuvwxyz0123456789_"
+        cleaned = "".join(char for char in cleaned if char in allowed)
+        if cleaned == "":
+            return "joinraffle"
+        return cleaned
+
+    def _get_join_command_alias(self) -> str:
+        configured_alias = str(self.settings.get("join_command", "joinraffle"))
+        return self._sanitize_join_command_alias(configured_alias)
+
+    def _get_join_command_display(self) -> str:
+        return f"!{self._get_join_command_alias()}"
+
+    def _format_raffle_phrase(self, key: str, **arguments: Any) -> str:
+        join_command = self._get_join_command_display()
+        phrase_template = self.settings.get(key)
+        if isinstance(phrase_template, str):
+            # Backwards compatibility for existing phrases that hardcode !join.
+            if "{join_command}" not in phrase_template and "!join" in phrase_template:
+                phrase_template = phrase_template.replace("!join", "{join_command}")
+
+            try:
+                return phrase_template.format(join_command=join_command, **arguments)
+            except (IndexError, ValueError, KeyError):
+                pass
+
+        return self.get_phrase(key, join_command=join_command, **arguments)
+
     def load_commands(self, **options: Any) -> None:
+        join_command_alias = self._get_join_command_alias()
+        join_command_display = self._get_join_command_display()
+
         self.commands["singleraffle"] = Command.raw_command(
             self.raffle,
             delay_all=0,
@@ -189,29 +235,30 @@ class RaffleModule(BaseModule):
                     None,
                     "Start a raffle for 69 points",
                     chat="user:!raffle 69\n"
-                    "bot:A raffle has begun for 69 points. Type !join to join the raffle! The raffle will end in 60 seconds.",
+                    f"bot:A raffle has begun for 69 points. Type {join_command_display} to join the raffle! The raffle will end in 60 seconds.",
                     description="Start a 60-second raffle for 69 points",
                 ).parse(),
                 CommandExample(
                     None,
                     "Start a raffle with a different length",
                     chat="user:!raffle 69 30\n"
-                    "bot:A raffle has begun for 69 points. Type !join to join the raffle! The raffle will end in 30 seconds.",
+                    f"bot:A raffle has begun for 69 points. Type {join_command_display} to join the raffle! The raffle will end in 30 seconds.",
                     description="Start a 30-second raffle for 69 points",
                 ).parse(),
             ],
         )
         self.commands["sraffle"] = self.commands["singleraffle"]
-        self.commands["join"] = Command.raw_command(
+        self.commands[join_command_alias] = Command.raw_command(
             self.join,
             delay_all=0,
             delay_user=5,
             description="Join a running raffle",
+            command=join_command_alias,
             examples=[
                 CommandExample(
                     None,
                     "Join a running raffle",
-                    chat="user:!join",
+                    chat=f"user:{join_command_display}",
                     description="You don't get confirmation whether you joined the raffle or not.",
                 ).parse()
             ],
@@ -229,14 +276,14 @@ class RaffleModule(BaseModule):
                         None,
                         "Start a multi-raffle for 69 points",
                         chat="user:!multiraffle 69\n"
-                        "bot:A multi-raffle has begun for 69 points. Type !join to join the raffle! The raffle will end in 60 seconds.",
+                        f"bot:A multi-raffle has begun for 69 points. Type {join_command_display} to join the raffle! The raffle will end in 60 seconds.",
                         description="Start a 60-second raffle for 69 points",
                     ).parse(),
                     CommandExample(
                         None,
                         "Start a multi-raffle with a different length",
                         chat="user:!multiraffle 69 30\n"
-                        "bot:A multi-raffle has begun for 69 points. Type !join to join the raffle! The raffle will end in 30 seconds.",
+                        f"bot:A multi-raffle has begun for 69 points. Type {join_command_display} to join the raffle! The raffle will end in 30 seconds.",
                         description="Start a 30-second multi-raffle for 69 points",
                     ).parse(),
                 ],
@@ -282,17 +329,29 @@ class RaffleModule(BaseModule):
         self.raffle_length = min(self.raffle_length, self.settings["max_length"])
 
         if self.settings["show_on_clr"]:
+            join_command_display = self._get_join_command_display()
             bot.websocket_manager.emit("notification", {"message": "A raffle has been started!"})
-            bot.execute_delayed(0.75, bot.websocket_manager.emit, "notification", {"message": "Type !join to enter!"})
+            bot.execute_delayed(
+                0.75,
+                bot.websocket_manager.emit,
+                "notification",
+                {"message": f"Type {join_command_display} to enter!"},
+            )
 
         arguments = {"length": self.raffle_length, "points": self.raffle_points}
-        bot.say(self.get_phrase("message_start", **arguments))
+        bot.say(self._format_raffle_phrase("message_start", **arguments))
         arguments = {"length": round(self.raffle_length * 0.75), "points": self.raffle_points}
-        bot.execute_delayed(self.raffle_length * 0.25, bot.say, self.get_phrase("message_running", **arguments))
+        bot.execute_delayed(
+            self.raffle_length * 0.25, bot.say, self._format_raffle_phrase("message_running", **arguments)
+        )
         arguments = {"length": round(self.raffle_length * 0.50), "points": self.raffle_points}
-        bot.execute_delayed(self.raffle_length * 0.50, bot.say, self.get_phrase("message_running", **arguments))
+        bot.execute_delayed(
+            self.raffle_length * 0.50, bot.say, self._format_raffle_phrase("message_running", **arguments)
+        )
         arguments = {"length": round(self.raffle_length * 0.25), "points": self.raffle_points}
-        bot.execute_delayed(self.raffle_length * 0.75, bot.say, self.get_phrase("message_running", **arguments))
+        bot.execute_delayed(
+            self.raffle_length * 0.75, bot.say, self._format_raffle_phrase("message_running", **arguments)
+        )
 
         bot.execute_delayed(self.raffle_length, self.end_raffle)
 
@@ -360,24 +419,34 @@ class RaffleModule(BaseModule):
         self.raffle_length = min(self.raffle_length, self.settings["multi_max_length"])
 
         if self.settings["show_on_clr"]:
+            join_command_display = self._get_join_command_display()
             self.bot.websocket_manager.emit("notification", {"message": "A raffle has been started!"})
             self.bot.execute_delayed(
-                0.75, self.bot.websocket_manager.emit, "notification", {"message": "Type !join to enter!"}
+                0.75,
+                self.bot.websocket_manager.emit,
+                "notification",
+                {"message": f"Type {join_command_display} to enter!"},
             )
 
         arguments = {"length": self.raffle_length, "points": self.raffle_points}
-        self.bot.say(self.get_phrase("message_start_multi", **arguments))
+        self.bot.say(self._format_raffle_phrase("message_start_multi", **arguments))
         arguments = {"length": round(self.raffle_length * 0.75), "points": self.raffle_points}
         self.bot.execute_delayed(
-            self.raffle_length * 0.25, self.bot.say, self.get_phrase("message_running_multi", **arguments)
+            self.raffle_length * 0.25,
+            self.bot.say,
+            self._format_raffle_phrase("message_running_multi", **arguments),
         )
         arguments = {"length": round(self.raffle_length * 0.50), "points": self.raffle_points}
         self.bot.execute_delayed(
-            self.raffle_length * 0.50, self.bot.say, self.get_phrase("message_running_multi", **arguments)
+            self.raffle_length * 0.50,
+            self.bot.say,
+            self._format_raffle_phrase("message_running_multi", **arguments),
         )
         arguments = {"length": round(self.raffle_length * 0.25), "points": self.raffle_points}
         self.bot.execute_delayed(
-            self.raffle_length * 0.75, self.bot.say, self.get_phrase("message_running_multi", **arguments)
+            self.raffle_length * 0.75,
+            self.bot.say,
+            self._format_raffle_phrase("message_running_multi", **arguments),
         )
 
         self.bot.execute_delayed(self.raffle_length, self.multi_end_raffle)

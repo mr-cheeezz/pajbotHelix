@@ -9,6 +9,23 @@
 <meta property="og:image" content="/static/images/logo_{{ streamer.full_name }}.png" />
 <meta property="og:description" content="{{ self.title() }} page for {{ bot.name }}'s website" />
 <link rel="shortcut icon" href="/static/images/favicon_{{ streamer.full_name }}.ico" />
+<script>
+(function() {
+    var preferredTheme = null;
+    try {
+        preferredTheme = localStorage.getItem("pajbot_theme");
+    } catch (e) {}
+
+    if (preferredTheme !== "light" && preferredTheme !== "dark") {
+        preferredTheme =
+            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+    }
+
+    document.documentElement.setAttribute("data-theme", preferredTheme);
+})();
+</script>
 <style>
 .pui.badge.subscriber {
     background-image: url('/static/images/badge_sub_{{ streamer.full_name }}.png');
@@ -53,6 +70,10 @@
     {% block body %}{% endblock %}
 </div>
 </main>
+<button id="theme-toggle" class="ui compact button theme-toggle-button" type="button" aria-label="Toggle theme">
+    <i class="moon icon theme-toggle-icon"></i>
+    <span class="theme-toggle-label">Dark mode</span>
+</button>
 <br />
 <footer class="main footer">
 <div class="ui inverted vertical footer segment">

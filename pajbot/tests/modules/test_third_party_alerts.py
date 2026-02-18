@@ -1,0 +1,84 @@
+from decimal import Decimal
+
+from pajbot.modules.chat_alerts.third_party_alerts import ThirdPartyAlertsModule
+
+
+class FakeResponse:
+    def __init__(self, json_data, status_code=200):
+        self._json = json_data
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise ValueError(f"Bad response code: {self.status_code}")
+
+    def json(self):
+        return self._json
+
+
+def test_fetch_streamlabs_donations_normalizes_events(monkeypatch) -> None:
+    module = ThirdPartyAlertsModule(bot=None)
+    module.provider = "streamlabs"
+    module.token = "abc"
+
+    def fake_get(url, params=None, timeout=None):
+        assert "streamlabs.com/api/v1.0/donations" in url
+        return FakeResponse(
+            {
+                "data": [
+                    {
+                        "donation_id": 10,
+                        "name": "alice",
+                        "amount": "4.20",
+                        "currency": "USD",
+                        "message": "great stream",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("pajbot.modules.chat_alerts.third_party_alerts.requests.get", fake_get)
+
+    events = module._fetch_streamlabs_donations()
+    assert len(events) == 1
+    assert events[0].event_id == "10"
+    assert events[0].username == "alice"
+    assert events[0].amount == Decimal("4.20")
+    assert events[0].provider == "Streamlabs"
+
+
+def test_fetch_streamelements_tips_normalizes_events(monkeypatch) -> None:
+    module = ThirdPartyAlertsModule(bot=None)
+    module.provider = "streamelements"
+    module.token = "abc"
+
+    monkeypatch.setattr(
+        ThirdPartyAlertsModule,
+        "_resolve_streamelements_channel_id",
+        lambda self: "channel-id",
+    )
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        assert "api.streamelements.com/kappa/v2/tips/channel-id" in url
+        return FakeResponse(
+            {
+                "docs": [
+                    {
+                        "_id": "tip-1",
+                        "username": "bob",
+                        "amount": "5",
+                        "currency": "EUR",
+                        "message": "pog",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("pajbot.modules.chat_alerts.third_party_alerts.requests.get", fake_get)
+
+    events = module._fetch_streamelements_tips()
+    assert len(events) == 1
+    assert events[0].event_id == "tip-1"
+    assert events[0].username == "bob"
+    assert events[0].amount == Decimal("5")
+    assert events[0].provider == "StreamElements"

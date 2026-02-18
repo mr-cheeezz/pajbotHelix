@@ -13,7 +13,77 @@ $.fn.api.settings.api = {
     commands: '/api/v1/commands/{raw_command_id}',
 };
 
+var THEME_STORAGE_KEY = 'pajbot_theme';
+
+function getStoredTheme() {
+    try {
+        return localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (e) {
+        return null;
+    }
+}
+
+function setStoredTheme(theme) {
+    try {
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (e) {}
+}
+
+function getPreferredTheme() {
+    var stored = getStoredTheme();
+    if (stored === 'light' || stored === 'dark') {
+        return stored;
+    }
+
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+    }
+
+    return 'light';
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+function updateThemeToggleLabel(theme) {
+    var toggle = $('#theme-toggle');
+    if (!toggle.length) {
+        return;
+    }
+
+    var icon = toggle.find('.theme-toggle-icon');
+    var label = toggle.find('.theme-toggle-label');
+    if (theme === 'dark') {
+        icon.removeClass('moon').addClass('sun');
+        label.text('Light mode');
+    } else {
+        icon.removeClass('sun').addClass('moon');
+        label.text('Dark mode');
+    }
+}
+
+function initThemeToggle() {
+    var toggle = $('#theme-toggle');
+    if (!toggle.length) {
+        return;
+    }
+
+    var currentTheme = getPreferredTheme();
+    applyTheme(currentTheme);
+    updateThemeToggleLabel(currentTheme);
+
+    toggle.on('click', function() {
+        currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(currentTheme);
+        setStoredTheme(currentTheme);
+        updateThemeToggleLabel(currentTheme);
+    });
+}
+
 $(document).ready(function() {
+    initThemeToggle();
+
     $('#usersearch').form({
         fields: {
             username: 'empty',
