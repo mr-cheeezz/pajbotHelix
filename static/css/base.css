@@ -275,7 +275,13 @@ div.pui.class.undefined {
 #stats,
 #userprofile,
 #top_users {
-    padding: 0.25rem 0;
+    padding: 0.75rem 0;
+}
+
+#userprofile .mediumtable,
+#stats .minitable,
+#top_users table {
+    margin-top: 0.75rem;
 }
 
 #check_points {
@@ -449,6 +455,10 @@ div.anchor {
     padding-top: 35px;
 }
 
+#bot_moderators {
+    padding: 0.5rem 0;
+}
+
 .command-sample {
     font-family: monospace;
 }
@@ -590,6 +600,21 @@ a {
     background: var(--surface-soft) !important;
 }
 
+.ui.top.fixed.menu.inverted.blue,
+.ui.menu.inverted.blue {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+
+.ui.menu.inverted.blue .item,
+.ui.menu.inverted.blue .item > a {
+    color: var(--page-text) !important;
+}
+
+.ui.menu.inverted.blue .item.active {
+    background: var(--surface-soft) !important;
+}
+
 .ui.segment:not(.inverted),
 .ui.message:not(.inverted),
 .ui.card,
@@ -634,6 +659,34 @@ a {
 
 .ui.dropdown .menu > .item:hover {
     background: var(--surface-soft) !important;
+}
+
+.ui.menu.inverted .ui.dropdown .menu,
+.ui.menu.inverted .ui.simple.dropdown .menu {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+}
+
+.ui.menu.inverted .ui.dropdown .menu > .item,
+.ui.menu.inverted .ui.simple.dropdown .menu > .item,
+.ui.menu.inverted .ui.dropdown .menu > .item > a,
+.ui.menu.inverted .ui.simple.dropdown .menu > .item > a {
+    color: var(--page-text) !important;
+}
+
+.ui.menu.inverted .ui.dropdown .menu > .item:hover,
+.ui.menu.inverted .ui.simple.dropdown .menu > .item:hover {
+    background: var(--surface-soft) !important;
+}
+
+:root[data-theme="dark"] .ui.button:not(.primary):not(.positive):not(.negative):not(.red):not(.green):not(.blue):not(.black):not(.basic) {
+    background: var(--surface-soft) !important;
+    color: var(--page-text) !important;
+    border: 1px solid var(--border) !important;
+}
+
+:root[data-theme="dark"] .ui.button:not(.primary):not(.positive):not(.negative):not(.red):not(.green):not(.blue):not(.black):not(.basic):hover {
+    background: #343741 !important;
 }
 
 .pui.command,
@@ -693,7 +746,7 @@ div.chat div.chat-message {
     #stats,
     #userprofile,
     #top_users {
-        padding: 0.25rem;
+        padding: 0.5rem 0.25rem;
     }
 
     #check_points {
@@ -712,5 +765,9 @@ div.chat div.chat-message {
         display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    #bot_moderators {
+        padding: 0.5rem 0.25rem;
     }
 }
