@@ -3,16 +3,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
+import hashlib
+import json
+import threading
+import time
+import urllib.parse
+import uuid
 
 import logging
 
 from pajbot.managers.db import DBManager
+from pajbot.managers.schedule import ScheduledJob
 from pajbot.managers.schedule import ScheduleManager
 from pajbot.models.user import User
 from pajbot.modules import BaseModule, ModuleSetting
 from pajbot.modules.chat_alerts import ChatAlertModule
 
 import requests
+from requests import HTTPError
+
+try:
+    import websocket  # type: ignore[import-not-found]
+except ImportError:
+    websocket = None
 
 log = logging.getLogger(__name__)
 
@@ -74,11 +87,16 @@ class ThirdPartyAlertsModule(BaseModule):
         self.provider = "none"
         self.token = ""
         self.poll_seconds = 20
+        self.realtime_enabled = True
         self.se_channel_id: Optional[str] = None
 
         self.seen_event_ids: set[str] = set()
         self.max_seen_events = 300
         self.initialized_event_cache = False
+        self.poll_job: Optional[ScheduledJob] = None
+
+        self._realtime_thread: Optional[threading.Thread] = None
+        self._realtime_stop_event = threading.Event()
 
     def _load_provider_config(self) -> None:
         if self.bot is None:
@@ -99,6 +117,12 @@ class ThirdPartyAlertsModule(BaseModule):
             self.poll_seconds = 20
 
         self.poll_seconds = max(10, min(self.poll_seconds, 300))
+        self.realtime_enabled = str(provider_config.get("realtime_enabled", "true")).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
 
     @staticmethod
     def _parse_amount(value: Any) -> Decimal:
@@ -106,6 +130,31 @@ class ThirdPartyAlertsModule(BaseModule):
             return Decimal(str(value))
         except (InvalidOperation, ValueError):
             return Decimal("0")
+
+    @staticmethod
+    def _parse_bool(value: Any) -> bool:
+        return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def _stable_fallback_id(prefix: str, payload: dict[str, Any]) -> str:
+        digest = hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        return f"{prefix}-{digest}"
+
+    @staticmethod
+    def _extract_message_text(payload: dict[str, Any]) -> str:
+        for key in ("message", "tipMessage"):
+            value = payload.get(key)
+            if isinstance(value, str):
+                return value.strip()
+        return ""
+
+    @staticmethod
+    def _extract_currency(payload: dict[str, Any]) -> str:
+        for key in ("currency", "currencyCode"):
+            value = payload.get(key)
+            if value:
+                return str(value)
+        return "USD"
 
     def _resolve_streamelements_channel_id(self) -> Optional[str]:
         if self.bot is None:
@@ -211,12 +260,259 @@ class ThirdPartyAlertsModule(BaseModule):
             return self._fetch_streamlabs_donations()
         return []
 
+    @staticmethod
+    def _read_json_text(raw_text: str) -> Optional[dict[str, Any]]:
+        try:
+            parsed = json.loads(raw_text)
+        except ValueError:
+            return None
+
+        if isinstance(parsed, dict):
+            return parsed
+        return None
+
+    def _event_from_streamelements_payload(self, payload: dict[str, Any]) -> Optional[ExternalTipEvent]:
+        # The live activity stream can contain multiple event kinds.
+        event_type = str(payload.get("type", payload.get("event", ""))).lower()
+        amount = self._parse_amount(payload.get("amount", payload.get("tipAmount", "0")))
+        if amount <= 0 and event_type not in ("tip", "donation", "tips"):
+            return None
+
+        username = str(payload.get("username", payload.get("user", payload.get("displayName", "")))).strip()
+        if not username:
+            return None
+
+        raw_id = payload.get("_id", payload.get("id", payload.get("eventId", payload.get("uuid"))))
+        if raw_id:
+            event_id = str(raw_id)
+        else:
+            event_id = self._stable_fallback_id("se", payload)
+
+        return ExternalTipEvent(
+            event_id=event_id,
+            username=username,
+            amount=amount,
+            currency=self._extract_currency(payload),
+            message=self._extract_message_text(payload),
+            provider="StreamElements",
+        )
+
+    def _extract_streamelements_events(self, parsed_message: dict[str, Any]) -> list[ExternalTipEvent]:
+        data = parsed_message.get("data")
+        if not isinstance(data, dict):
+            return []
+
+        payload = data.get("payload")
+        if isinstance(payload, dict):
+            event = self._event_from_streamelements_payload(payload)
+            return [event] if event is not None else []
+
+        if isinstance(payload, list):
+            events: list[ExternalTipEvent] = []
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                event = self._event_from_streamelements_payload(item)
+                if event is not None:
+                    events.append(event)
+            return events
+
+        return []
+
+    def _event_from_streamlabs_payload(self, payload: dict[str, Any]) -> Optional[ExternalTipEvent]:
+        event_type = str(payload.get("type", "")).lower()
+        if event_type and event_type != "donation":
+            return None
+
+        username = str(payload.get("name", payload.get("username", payload.get("from", "")))).strip()
+        if not username:
+            return None
+
+        raw_id = payload.get("donation_id", payload.get("id", payload.get("message_id")))
+        if raw_id:
+            event_id = str(raw_id)
+        else:
+            event_id = self._stable_fallback_id("sl", payload)
+
+        return ExternalTipEvent(
+            event_id=event_id,
+            username=username,
+            amount=self._parse_amount(payload.get("amount", "0")),
+            currency=self._extract_currency(payload),
+            message=self._extract_message_text(payload),
+            provider="Streamlabs",
+        )
+
+    def _extract_streamlabs_events(self, payload: dict[str, Any]) -> list[ExternalTipEvent]:
+        event_type = str(payload.get("type", payload.get("for", ""))).lower()
+        if event_type and event_type not in ("donation", "streamlabs"):
+            return []
+
+        message_payload = payload.get("message")
+        if isinstance(message_payload, dict):
+            event = self._event_from_streamlabs_payload(message_payload)
+            return [event] if event is not None else []
+
+        if isinstance(message_payload, list):
+            events: list[ExternalTipEvent] = []
+            for item in message_payload:
+                if not isinstance(item, dict):
+                    continue
+                event = self._event_from_streamlabs_payload(item)
+                if event is not None:
+                    events.append(event)
+            return events
+
+        event = self._event_from_streamlabs_payload(payload)
+        return [event] if event is not None else []
+
     def _remember_event_id(self, event_id: str) -> None:
         self.seen_event_ids.add(event_id)
 
         if len(self.seen_event_ids) > self.max_seen_events:
             # Keep memory bounded - we only need recent IDs.
             self.seen_event_ids = set(list(self.seen_event_ids)[-self.max_seen_events :])
+
+    def _handle_incoming_events(self, events: list[ExternalTipEvent]) -> None:
+        for event in events:
+            if event.event_id in self.seen_event_ids:
+                continue
+
+            self._remember_event_id(event.event_id)
+            if self.bot is not None:
+                self.bot.execute_now(self._handle_tip_event, event)
+
+    def _streamlabs_fetch_socket_token(self) -> str:
+        response = requests.get(
+            "https://streamlabs.com/api/v2.0/socket/token",
+            headers={"Authorization": f"Bearer {self.token}"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        json_data = response.json()
+        socket_token = str(json_data.get("socket_token", "")).strip()
+        if not socket_token:
+            raise ValueError("Streamlabs socket token response was missing socket_token")
+        return socket_token
+
+    def _run_streamelements_realtime_once(self) -> None:
+        if websocket is None:
+            raise RuntimeError("websocket-client is not installed")
+        if not self.token:
+            raise RuntimeError("No StreamElements token configured")
+
+        channel_id = self._resolve_streamelements_channel_id()
+        if channel_id is None:
+            raise RuntimeError("Unable to resolve StreamElements channel id")
+
+        ws = websocket.create_connection("wss://astro.streamelements.com", timeout=30)
+        try:
+            subscribe_payload = {
+                "type": "subscribe",
+                "nonce": str(uuid.uuid4()),
+                "data": {"topic": "channel.activities", "room": channel_id, "token": self.token},
+            }
+            ws.send(json.dumps(subscribe_payload))
+
+            while not self._realtime_stop_event.is_set():
+                raw_message = ws.recv()
+                if not raw_message:
+                    continue
+
+                if isinstance(raw_message, bytes):
+                    raw_message = raw_message.decode("utf-8", "replace")
+
+                parsed_message = self._read_json_text(raw_message)
+                if parsed_message is None:
+                    continue
+
+                events = self._extract_streamelements_events(parsed_message)
+                if events:
+                    self._handle_incoming_events(events)
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    def _run_streamlabs_realtime_once(self) -> None:
+        if websocket is None:
+            raise RuntimeError("websocket-client is not installed")
+        if not self.token:
+            raise RuntimeError("No Streamlabs token configured")
+
+        socket_token = self._streamlabs_fetch_socket_token()
+        token_query = urllib.parse.quote(socket_token, safe="")
+        ws = websocket.create_connection(
+            f"wss://sockets.streamlabs.com/socket.io/?EIO=3&transport=websocket&token={token_query}",
+            timeout=30,
+        )
+        try:
+            connected_namespace = False
+            while not self._realtime_stop_event.is_set():
+                raw_message = ws.recv()
+                if not raw_message:
+                    continue
+
+                if isinstance(raw_message, bytes):
+                    raw_message = raw_message.decode("utf-8", "replace")
+
+                if raw_message.startswith("0"):
+                    ws.send("40")
+                    connected_namespace = True
+                    continue
+
+                if raw_message == "2":
+                    ws.send("3")
+                    continue
+
+                if not connected_namespace:
+                    continue
+
+                if not raw_message.startswith("42"):
+                    continue
+
+                try:
+                    payload = json.loads(raw_message[2:])
+                except ValueError:
+                    continue
+
+                if not isinstance(payload, list) or len(payload) < 2:
+                    continue
+
+                event_name = payload[0]
+                event_payload = payload[1]
+                if event_name != "event" or not isinstance(event_payload, dict):
+                    continue
+
+                events = self._extract_streamlabs_events(event_payload)
+                if events:
+                    self._handle_incoming_events(events)
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    def _run_realtime_loop(self) -> None:
+        while not self._realtime_stop_event.is_set():
+            try:
+                if self.provider == "streamelements":
+                    self._run_streamelements_realtime_once()
+                elif self.provider == "streamlabs":
+                    self._run_streamlabs_realtime_once()
+                else:
+                    return
+            except HTTPError as ex:
+                status_code = ex.response.status_code if ex.response is not None else "unknown"
+                log.warning("Realtime alerts HTTP error for %s: status=%s", self.provider, status_code)
+            except Exception:
+                log.exception("Realtime alerts connection failed for provider=%s", self.provider)
+
+            if self._realtime_stop_event.is_set():
+                return
+
+            time.sleep(5)
 
     def _grant_points_for_tip(self, event: ExternalTipEvent) -> None:
         if self.bot is None:
@@ -273,12 +569,32 @@ class ThirdPartyAlertsModule(BaseModule):
             self.initialized_event_cache = True
             return
 
-        for event in events:
-            if event.event_id in self.seen_event_ids:
-                continue
+        self._handle_incoming_events(events)
 
-            self._remember_event_id(event.event_id)
-            self._handle_tip_event(event)
+    def _start_realtime_if_configured(self) -> None:
+        if not self.realtime_enabled:
+            log.info("Realtime third-party alerts disabled via [alerts_provider] realtime_enabled=false")
+            return
+
+        if websocket is None:
+            log.warning(
+                "Realtime third-party alerts requested but websocket-client is missing. Install dependencies to enable realtime."
+            )
+            return
+
+        self._realtime_stop_event.clear()
+        self._realtime_thread = threading.Thread(
+            name=f"ThirdPartyAlertsRealtime-{self.provider}",
+            target=self._run_realtime_loop,
+            daemon=True,
+        )
+        self._realtime_thread.start()
+
+    def _stop_realtime(self) -> None:
+        self._realtime_stop_event.set()
+        if self._realtime_thread is not None:
+            self._realtime_thread.join(timeout=3)
+            self._realtime_thread = None
 
     def enable(self, bot) -> None:
         if bot is None:
@@ -289,5 +605,12 @@ class ThirdPartyAlertsModule(BaseModule):
             log.info("ThirdPartyAlertsModule disabled via [alerts_provider] provider=none")
             return
 
-        ScheduleManager.execute_every(self.poll_seconds, self._poll_provider_events)
+        self._start_realtime_if_configured()
+        self.poll_job = ScheduleManager.execute_every(self.poll_seconds, self._poll_provider_events)
 
+    def disable(self, bot) -> None:
+        self._stop_realtime()
+
+        if self.poll_job is not None:
+            self.poll_job.remove()
+            self.poll_job = None

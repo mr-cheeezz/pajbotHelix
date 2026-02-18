@@ -82,3 +82,48 @@ def test_fetch_streamelements_tips_normalizes_events(monkeypatch) -> None:
     assert events[0].username == "bob"
     assert events[0].amount == Decimal("5")
     assert events[0].provider == "StreamElements"
+
+
+def test_extract_streamelements_realtime_events() -> None:
+    module = ThirdPartyAlertsModule(bot=None)
+    parsed = {
+        "type": "event",
+        "data": {
+            "topic": "channel.activities",
+            "payload": {
+                "_id": "realtime-tip-1",
+                "type": "tip",
+                "username": "charlie",
+                "amount": "7.50",
+                "currency": "USD",
+                "message": "live pog",
+            },
+        },
+    }
+    events = module._extract_streamelements_events(parsed)
+    assert len(events) == 1
+    assert events[0].event_id == "realtime-tip-1"
+    assert events[0].username == "charlie"
+    assert events[0].amount == Decimal("7.50")
+
+
+def test_extract_streamlabs_socket_events() -> None:
+    module = ThirdPartyAlertsModule(bot=None)
+    payload = {
+        "for": "streamlabs",
+        "type": "donation",
+        "message": [
+            {
+                "donation_id": "22",
+                "name": "delta",
+                "amount": "2.00",
+                "currency": "USD",
+                "message": "socket test",
+            }
+        ],
+    }
+    events = module._extract_streamlabs_events(payload)
+    assert len(events) == 1
+    assert events[0].event_id == "22"
+    assert events[0].username == "delta"
+    assert events[0].amount == Decimal("2.00")
