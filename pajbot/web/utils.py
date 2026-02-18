@@ -12,6 +12,7 @@ import pajbot.managers
 from pajbot import utils
 from pajbot.apiwrappers.base import BaseAPI
 from pajbot.managers.db import DBManager
+from pajbot.managers.handler import HandlerManager
 from pajbot.managers.redis import RedisManager
 from pajbot.models.module import ModuleManager
 from pajbot.models.user import User
@@ -148,6 +149,8 @@ def get_cached_commands() -> list[dict[str, Any]]:
         return cached_bot_command_list
 
     log.debug("Updating commands...")
+    # Web workers don't run bot startup, so ensure handler slots exist before module loading.
+    HandlerManager.init_handlers()
     bot_commands = pajbot.managers.command.CommandManager(
         socket_manager=None, module_manager=ModuleManager(None).load(), bot=None
     ).load(load_examples=True)
@@ -177,6 +180,8 @@ def get_cached_enabled_modules() -> set[str]:
         return set(cached_enabled_modules)
 
     log.debug("Updating enabled modules...")
+    # Web workers don't run bot startup, so ensure handler slots exist before module loading.
+    HandlerManager.init_handlers()
     module_manager = ModuleManager(None).load()
     for module in module_manager.modules:
         enabled_modules.add(module.ID)

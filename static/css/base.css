@@ -350,6 +350,66 @@ div.pui.class.undefined {
     padding-bottom: 0.7rem !important;
 }
 
+#stats {
+    max-width: 980px;
+}
+
+#stats > h3,
+#stats > p {
+    margin-top: 0.9rem;
+    margin-bottom: 0.55rem;
+}
+
+#stats table.ui.table {
+    width: 100% !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--surface) !important;
+    margin-bottom: 1rem;
+}
+
+#stats table.ui.table thead th {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    background: var(--surface-soft) !important;
+    border-color: var(--border) !important;
+}
+
+#stats table.ui.table tbody td {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    border-color: var(--border) !important;
+}
+
+#stats .minitable.stats {
+    float: none;
+    display: inline-block;
+    vertical-align: top;
+    width: min(100%, 460px);
+    margin: 0 0.75rem 1rem 0;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.55rem;
+    background: var(--surface);
+}
+
+#stats .minitable.stats h3 {
+    margin: 0.2rem 0 0.65rem 0;
+}
+
+.main.footer .ui.inverted.vertical.footer.segment {
+    background: var(--surface) !important;
+    border-top: 1px solid var(--border) !important;
+}
+
+.main.footer .ui.inverted.vertical.footer.segment .ui.inverted.header,
+.main.footer .ui.inverted.vertical.footer.segment .ui.inverted.link.list .item,
+.main.footer .ui.inverted.vertical.footer.segment em,
+.main.footer .ui.inverted.vertical.footer.segment a {
+    color: var(--page-text) !important;
+}
+
 #check_points {
     width: min(100%, 420px);
     min-width: 300px;
@@ -926,6 +986,11 @@ div.chat div.chat-message {
     #top_users table.ui.table th:nth-child(3),
     #top_users table.ui.table td:nth-child(3) {
         width: 140px;
+    }
+
+    #stats .minitable.stats {
+        width: 100%;
+        margin-right: 0;
     }
 
 }
