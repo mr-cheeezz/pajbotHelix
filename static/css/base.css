@@ -825,6 +825,13 @@ a {
     color: #ffffff !important;
 }
 
+.admin-blue-menu.ui.top.fixed.menu.inverted.blue .item.active,
+.admin-blue-menu.ui.top.fixed.menu.inverted.blue .ui.simple.dropdown.item.active,
+.admin-blue-menu .ui.compact.menu.inverted.blue .item.active {
+    background: #1565a8 !important;
+    color: #ffffff !important;
+}
+
 .admin-blue-menu .ui.compact.menu.inverted.blue {
     background: transparent !important;
     border: 0 !important;
