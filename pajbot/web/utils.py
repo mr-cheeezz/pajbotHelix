@@ -118,6 +118,7 @@ def download_sub_badge(twitch_helix_api: TwitchHelixAPI, streamer: UserBasics, s
 def get_top_emotes() -> list[dict[str, str]]:
     redis = RedisManager.get()
     streamer = StreamHelper.get_streamer()
+    streamer_id = StreamHelper.get_streamer_id()
 
     top_emotes_list: list[dict[str, str]] = []
     top_emotes = {  # noqa: C416
@@ -128,11 +129,72 @@ def get_top_emotes() -> list[dict[str, str]]:
     }
 
     if top_emotes:
+        emote_url_lookup = _get_cached_emote_url_lookup(redis, streamer, streamer_id)
         top_emotes_list.extend(
-            {"emote_name": emote, "emote_count": str(int(emote_count))} for emote, emote_count in top_emotes.items()
+            {
+                "emote_name": emote,
+                "emote_count": str(int(emote_count)),
+                "emote_image_url": emote_url_lookup.get(emote, ""),
+            }
+            for emote, emote_count in top_emotes.items()
         )
 
     return top_emotes_list
+
+
+def _read_cached_emote_list(redis, redis_key: str) -> list[dict[str, Any]]:
+    raw_value = redis.get(redis_key)
+    if raw_value is None:
+        return []
+
+    try:
+        parsed = json.loads(raw_value)
+    except (TypeError, ValueError):
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    emotes: list[dict[str, Any]] = []
+    for entry in parsed:
+        if isinstance(entry, dict):
+            emotes.append(entry)
+        elif isinstance(entry, list):
+            for nested_entry in entry:
+                if isinstance(nested_entry, dict):
+                    emotes.append(nested_entry)
+    return emotes
+
+
+def _get_cached_emote_url_lookup(redis, streamer: str, streamer_id: str) -> dict[str, str]:
+    redis_keys = [
+        "api:ffz:global-emotes",
+        f"api:ffz:channel-emotes:{streamer}",
+        "api:bttv:global-emotes",
+        f"api:bttv:channel-emotes:{streamer_id}",
+        "api:7tv:global-emotes",
+        f"api:7tv:channel-emotes:{streamer_id}",
+        "api:twitch:helix:global-emotes",
+        f"api:twitch:helix:channel-emotes:{streamer_id}",
+    ]
+
+    emote_url_lookup: dict[str, str] = {}
+    for redis_key in redis_keys:
+        for emote in _read_cached_emote_list(redis, redis_key):
+            code = emote.get("code")
+            if not isinstance(code, str) or not code:
+                continue
+
+            urls = emote.get("urls")
+            if not isinstance(urls, dict):
+                continue
+
+            # Prefer larger image if available.
+            image_url = urls.get("4") or urls.get("2") or urls.get("1")
+            if isinstance(image_url, str) and image_url:
+                emote_url_lookup[code] = image_url
+
+    return emote_url_lookup
 
 
 @time_method

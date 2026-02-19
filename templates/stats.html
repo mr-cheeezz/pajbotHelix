@@ -54,7 +54,12 @@
         <tbody>
             {% for emote in top_100_emotes %}
                 <tr>
-                    <td>{{ emote['emote_name'] }}</td>
+                    <td>
+                        {% if emote['emote_image_url'] %}
+                            <img class="stats-emote-preview" src="{{ emote['emote_image_url'] }}" alt="{{ emote['emote_name'] }}">
+                        {% endif %}
+                        {{ emote['emote_name'] }}
+                    </td>
                     <td>{{ emote['emote_count']|number_format }}</td>
                 </tr>
             {% endfor %}
