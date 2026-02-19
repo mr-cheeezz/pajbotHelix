@@ -683,9 +683,15 @@ class ThirdPartyAlertsModule(BaseModule):
 
             user.points += points_to_grant
 
-            grant_message = self.settings["grant_points_message"]
-            if grant_message != "":
+            grant_message = str(self.settings["grant_points_message"]).strip()
+            # Accept common "off" values as disabled, not as literal chat text.
+            if grant_message.lower() in ("", "off", "false", "0", "none"):
+                return
+
+            try:
                 self.bot.say(grant_message.format(user=user, points=points_to_grant, provider=event.provider))
+            except Exception:
+                log.exception("Failed formatting/sending grant_points_message for external tip event %s", event.event_id)
 
     def _select_tip_message_and_type(self, amount: Decimal) -> tuple[str, str]:
         fixed_thresholds = [
@@ -730,7 +736,11 @@ class ThirdPartyAlertsModule(BaseModule):
                 if chat_message.strip() != "":
                     self.bot.send_message(chat_message, method=tip_message_type)
 
-        self._grant_points_for_tip(event)
+        # Points granting and its optional message must not block/disable tip thank-you alerts.
+        try:
+            self._grant_points_for_tip(event)
+        except Exception:
+            log.exception("Failed processing points grant for external tip event %s", event.event_id)
 
     def _poll_provider_events(self) -> None:
         try:
